@@ -1,8 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
+from flask_argon2 import Argon2
 
 db = SQLAlchemy()
+argon2 = Argon2()
 
-# ====================== Model Database ======================
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -12,9 +13,7 @@ class User(db.Model):
     role = db.Column(db.String(20), default="user")  # Role-Based Access Control (RBAC)
 
     def set_password(self, password):
-        from app import bcrypt  # **Hindari circular import dengan in-line import**
-        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+        self.password_hash = argon2.generate_password_hash(password)
 
     def check_password(self, password):
-        from app import bcrypt
-        return bcrypt.check_password_hash(self.password_hash, password)
+        return argon2.check_password_hash(self.password_hash, password)

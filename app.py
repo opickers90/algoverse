@@ -1,28 +1,39 @@
+import os
+import logging
+import re
+from datetime import timedelta
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from sqlalchemy import text
-from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_argon2 import Argon2
+from flask_jwt_extended import (
+    JWTManager, create_access_token, create_refresh_token,
+    jwt_required, get_jwt_identity
+)
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-import logging
-import re
-from auth_middleware import admin_required  # Import middleware untuk RBAC
+from dotenv import load_dotenv
+from auth_middleware import admin_required
 from models import db, User  # Import dari models.py
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 
 # ====================== Konfigurasi Keamanan ======================
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://algoverse_user:CQ41-210tu@localhost/algoverse_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("SQLALCHEMY_DATABASE_URI")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'CQ41-210tu'  # Ubah ke env variable di production
+app.config['JWT_SECRET_KEY'] = os.getenv("JWT_SECRET_KEY")  # Gunakan ENV untuk keamanan
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=15)  # Access Token berlaku 15 menit
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=7)  # Refresh Token berlaku 7 hari
 
 # Inisialisasi database & keamanan
 db.init_app(app)
 migrate = Migrate(app, db)
-bcrypt = Bcrypt(app)
+argon2 = Argon2(app)
 jwt = JWTManager(app)
 
 # CORS Configuration - Hanya frontend yang diizinkan mengakses API
@@ -32,7 +43,7 @@ CORS(app, resources={r"/*": {"origins": ["https://app.techlearnix.online"]}})
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["100 per day", "10 per hour"]
 )
 
 # Logging setup
@@ -54,12 +65,10 @@ def validate_user_input(data):
 
 # ====================== API ROUTES ======================
 
-# ✅ **Route utama**
 @app.route("/")
 def home():
     return jsonify({"message": "Backend Flask is running!"})
 
-# ✅ **Cek Koneksi Database**
 @app.route("/db")
 def check_db():
     try:
@@ -71,9 +80,8 @@ def check_db():
 
 # ====================== API CRUD dengan RBAC & Exception Handling ======================
 
-# ✅ **CREATE User**
 @app.route('/users', methods=['POST'])
-@limiter.limit("5 per minute")  # Mencegah spam user registration
+@limiter.limit("5 per minute")
 def create_user():
     try:
         data = request.get_json()
@@ -87,17 +95,16 @@ def create_user():
         if User.query.filter_by(email=data['email']).first():
             return jsonify({"error": "Email already exists"}), 409
 
-        new_user = User(name=data['name'], email=data['email'])
+        new_user = User(name=data['name'], email=data['email'], role=data.get("role", "user"))
         new_user.set_password(data['password'])
 
         db.session.add(new_user)
         db.session.commit()
-        return jsonify({"message": "User created successfully", "user": {"id": new_user.id, "name": new_user.name, "email": new_user.email}}), 201
+        return jsonify({"message": "User created successfully"}), 201
     except Exception as e:
         logging.error(f"Error creating user: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
 
-# ✅ **READ All Users (Admin Only)**
 @app.route('/users', methods=['GET'])
 @jwt_required()
 @admin_required
@@ -109,7 +116,6 @@ def get_users():
         logging.error(f"Error retrieving users: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
 
-# ✅ **DELETE User (Admin Only)**
 @app.route('/users/<int:user_id>', methods=['DELETE'])
 @jwt_required()
 @admin_required
@@ -128,22 +134,56 @@ def delete_user(user_id):
 
 # ====================== API Authentication ======================
 
-# ✅ **Login User & Generate Token**
 @app.route('/login', methods=['POST'])
-@limiter.limit("5 per minute")  # Hanya 5 kali percobaan login per menit
+@limiter.limit("3 per minute")
 def login():
     try:
         data = request.get_json()
         user = User.query.filter_by(email=data['email']).first()
 
         if user and user.check_password(data['password']):
-            access_token = create_access_token(identity=user.id)
-            return jsonify({"access_token": access_token}), 200
+            access_token = create_access_token(identity=str(user.id))  # Convert ID to string
+            refresh_token = create_refresh_token(identity=str(user.id))  # Convert to string
+
+            return jsonify({
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            }), 200
 
         return jsonify({"error": "Invalid email or password"}), 401
     except Exception as e:
         logging.error(f"Error during login: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
+
+@app.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    """Endpoint untuk memperbarui access token menggunakan refresh token."""
+    current_user = get_jwt_identity()  # Tetap string
+    new_access_token = create_access_token(identity=current_user)  # Gunakan STRING
+
+    return jsonify({"access_token": new_access_token}), 200
+
+# ====================== Tambahan Protected Routes ======================
+
+@app.route('/protected', methods=['GET'])
+@jwt_required()
+def protected():
+    try:
+        current_user = int(get_jwt_identity())
+        user = User.query.get(current_user)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        return jsonify({"message": f"Hello {user.name}, you have access!"})
+    except Exception as e:
+        logging.error(f"Error accessing protected route: {e}")
+        return jsonify({"error": "Internal Server Error"}), 500
+
+@app.route('/admin', methods=['GET'])
+@jwt_required()
+@admin_required  # Hanya bisa diakses oleh admin
+def admin():
+    return jsonify({"message": "Welcome, Admin!"})
 
 # ====================== Logging & Error Handling ======================
 
@@ -159,4 +199,4 @@ def not_found_error(error):
 
 # ========================================================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000)
