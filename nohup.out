@@ -6,3 +6,52 @@ Traceback (most recent call last):
   File "/var/www/algoverse/backend/webhook.py", line 1, in <module>
     from flask import Flask, request
 ModuleNotFoundError: No module named 'flask'
+ * Serving Flask app 'webhook'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:9000
+[33mPress CTRL+C to quit[0m
+[2025-02-05 16:48:41,475] ERROR in app: Exception on /webhook [POST]
+Traceback (most recent call last):
+  File "/var/www/algoverse/venv/lib/python3.10/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/var/www/algoverse/venv/lib/python3.10/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/var/www/algoverse/venv/lib/python3.10/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/var/www/algoverse/venv/lib/python3.10/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "/var/www/algoverse/backend/webhook.py", line 10, in webhook
+    subprocess.run(['git', 'pull', 'origin', 'main'], cwd='/var/www/techlearnix/backend')
+  File "/usr/lib/python3.10/subprocess.py", line 503, in run
+    with Popen(*popenargs, **kwargs) as process:
+  File "/usr/lib/python3.10/subprocess.py", line 971, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.10/subprocess.py", line 1863, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/var/www/techlearnix/backend'
+127.0.0.1 - - [05/Feb/2025 16:48:41] "[35m[1mPOST /webhook HTTP/1.1[0m" 500 -
+[2025-02-05 16:48:46,502] ERROR in app: Exception on /webhook [POST]
+Traceback (most recent call last):
+  File "/var/www/algoverse/venv/lib/python3.10/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/var/www/algoverse/venv/lib/python3.10/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/var/www/algoverse/venv/lib/python3.10/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/var/www/algoverse/venv/lib/python3.10/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "/var/www/algoverse/backend/webhook.py", line 10, in webhook
+    subprocess.run(['git', 'pull', 'origin', 'main'], cwd='/var/www/techlearnix/backend')
+  File "/usr/lib/python3.10/subprocess.py", line 503, in run
+    with Popen(*popenargs, **kwargs) as process:
+  File "/usr/lib/python3.10/subprocess.py", line 971, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.10/subprocess.py", line 1863, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/var/www/techlearnix/backend'
+127.0.0.1 - - [05/Feb/2025 16:48:46] "[35m[1mPOST /webhook HTTP/1.1[0m" 500 -
+ * Serving Flask app 'webhook'
+ * Debug mode: on
+ * Serving Flask app 'webhook'
+ * Debug mode: on
